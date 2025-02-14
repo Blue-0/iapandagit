@@ -22,11 +22,11 @@ async def start_chat():
     # Set initial message history
     cl.user_session.set("message_history", [{"role": "system", "content": "You are a helpful assistant."}])
 
-    # Sélection du modèle IA
+    # Sélection du modèle IA (correction ici)
     available_models = get_available_models()
-    selected_model = await cl.AskUserMessage(
+    selected_model = await cl.Select(
         content="🧠 Sélectionnez un modèle IA disponible :",
-        options=available_models
+        choices=available_models
     ).send()
 
     # Stocker le modèle sélectionné dans la session utilisateur
