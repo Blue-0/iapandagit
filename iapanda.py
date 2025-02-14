@@ -1,76 +1,44 @@
 import pandas as pd
+import sqlite3
 import chainlit as cl
-import subprocess
+from openai import AsyncOpenAI
 from pandasai import SmartDataframe
 from langchain_community.llms import Ollama
+from langchain_groq.chat_models import ChatGroq 
+import sqlite3
+import os
 
-# Fonction pour récupérer les modèles disponibles dans Ollama
-def get_available_models():
-    try:
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
-        if result.returncode == 0:
-            models = [line.split()[0] for line in result.stdout.strip().split("\n")[1:]]
-            return models
-    except Exception:
-        return ["llama3", "mistral", "deepseek"]
-    return []
+llm = Ollama(model="mistral:latest")
 
-# Fonction appelée au démarrage du chat
 @cl.on_chat_start
-async def start_chat():
-    # Récupérer les modèles disponibles
-    available_models = get_available_models()
+def start_chat():
+    # Set initial message history
+    cl.user_session.set(
+        "message_history",
+        [{"role": "system", "content": "You are a helpful assistant."}],
+    )
 
-    # Demander à l'utilisateur de sélectionner un modèle
-    settings = await cl.ChatSettings(
-        [
-            cl.Select(
-                id="model_select",
-                label="Sélectionnez un modèle IA",
-                values=available_models,
-                initial_index=0,
-            )
-        ]
-    ).send()
-
-    # Récupérer le modèle sélectionné
-    selected_model = settings["model_select"]
-
-    # Stocker le modèle sélectionné dans la session utilisateur
-    cl.user_session.set("selected_model", selected_model)
-
-    # Demander à l'utilisateur de télécharger un fichier Excel
-    uploaded_file = await cl.AskFileMessage(
-        content="Veuillez télécharger le fichier Excel à analyser.",
-        accept=[".xlsx"]
-    ).send()
-
-    if uploaded_file:
-        # Lire le fichier Excel
-        df = pd.read_excel(uploaded_file["path"], engine='openpyxl')
-        cl.user_session.set("dataframe", df)
-
-        await cl.Message(content="Fichier Excel chargé avec succès ! Vous pouvez maintenant poser vos questions.").send()
-
-# Fonction appelée lorsqu'un message est reçu
 @cl.on_message
 async def main(message: cl.Message):
-    # Récupérer le DataFrame et le modèle sélectionné
-    df = cl.user_session.get("dataframe")
-    selected_model = cl.user_session.get("selected_model")
+    # Retrieve message history
+    message_history = cl.user_session.get("message_history")
+    message_history.append({"role": "user", "content": message.content})
 
-    if df is None:
-        await cl.Message(content="Aucun fichier Excel n'a été chargé. Veuillez télécharger un fichier pour continuer.").send()
-        return
+    # Load data
+    df = pd.read_excel('data.xlsx')
+    # df = pd.read_csv('data.csv')
+    #conn = sqlite3.connect('data.db')
+    #df = pd.read_sql('SELECT * FROM countries', conn)
+    #conn.close()
 
-    # Initialiser l'IA avec le modèle sélectionné
-    llm = Ollama(model=selected_model)
-
-    # Convertir le DataFrame en SmartDataframe pour PandasAI
-    sdf = SmartDataframe(df, config={"llm": llm})
-
-    # Poser la question à l'IA
+    df = SmartDataframe(df, config={"llm": llm})
+    
     question = message.content
-    response = sdf.chat(question)
+    response = df.chat(question)
+    msg = cl.Message(content=response)
+    
+    await msg.send()
 
-    await cl.Message(content=response).send()
+    # Update message history and send final message
+    message_history.append({"role": "assistant", "content": msg.content})
+    await msg.update()
