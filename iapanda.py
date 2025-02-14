@@ -1,36 +1,32 @@
 import streamlit as st
 import pandas as pd
+import ollama
 
-# Titre de l'application
-st.title("Analyse de Fichiers Excel Volumineux")
+def excel_to_markdown(file):
+    df = pd.read_excel(file, engine='openpyxl')
+    return df.to_markdown(index=False)
 
-# Téléchargement du fichier Excel
-uploaded_file = st.file_uploader("Choisissez un fichier Excel", type=["xlsx"])
+# Interface Streamlit
+st.title("📊 Analyse de fichiers Excel avec LLaMA")
 
-if uploaded_file is not None:
-    # Lecture du fichier Excel
-    df = pd.read_excel(uploaded_file, engine='openpyxl')
+uploaded_file = st.file_uploader("📂 Téléchargez un fichier Excel", type=["xlsx"])
+
+if uploaded_file:
+    markdown_data = excel_to_markdown(uploaded_file)
     
-    # Affichage des dimensions du DataFrame
-    st.write(f"Le fichier contient {df.shape[0]} lignes et {df.shape[1]} colonnes.")
-    
-    # Affichage des premières lignes du DataFrame
-    st.write("Aperçu des données :")
-    st.dataframe(df.head())
-    
-    # Affichage de statistiques descriptives
-    st.write("Statistiques descriptives :")
-    st.write(df.describe())
-    
-    # Sélection de colonnes pour l'analyse
-    selected_columns = st.multiselect("Sélectionnez les colonnes à analyser", df.columns)
-    
-    if selected_columns:
-        st.write("Données sélectionnées :")
-        st.dataframe(df[selected_columns].head())
-        
-        # Affichage de corrélations
-        st.write("Matrice de corrélation :")
-        st.write(df[selected_columns].corr())
-    else:
-        st.write("Veuillez sélectionner au moins une colonne pour l'analyse.")
+    # Affichage du tableau Markdown
+    st.write("📜 **Données converties en Markdown :**")
+    st.code(markdown_data, language="markdown")
+
+    # Question de l'utilisateur
+    question = st.text_input("💬 Posez une question sur ces données")
+
+    if st.button("🔎 Analyser avec LLaMA"):
+        if question:
+            prompt = f"Voici un tableau de données :\n\n{markdown_data}\n\nQuestion : {question}"
+            
+            response = ollama.chat(model="llama3", messages=[{"role": "user", "content": prompt}])
+            ai_response = response["message"]["content"]
+
+            st.write("🧠 **Réponse de LLaMA :**")
+            st.write(ai_response)
