@@ -2,31 +2,53 @@ import streamlit as st
 import pandas as pd
 import ollama
 
+# 📌 Fonction pour convertir un fichier Excel en Markdown
 def excel_to_markdown(file):
-    df = pd.read_excel(file, engine='openpyxl')
-    return df.to_markdown(index=False)
+    df = pd.read_excel(file, engine='openpyxl')  # Charger le fichier Excel
+    return df.to_markdown(index=False)  # Convertir en Markdown
 
-# Interface Streamlit
-st.title("📊 Analyse de fichiers Excel avec LLaMA")
+# 🎯 Interface Streamlit
+st.set_page_config(page_title="Analyse Excel avec LLaMA", layout="wide")
 
-uploaded_file = st.file_uploader("📂 Téléchargez un fichier Excel", type=["xlsx"])
+st.title("📊 Analyse de Fichiers Excel avec LLaMA")
+
+# 📂 Télécharger un fichier Excel
+uploaded_file = st.file_uploader("📂 Téléchargez un fichier Excel (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
+    # 📌 Convertir en Markdown
     markdown_data = excel_to_markdown(uploaded_file)
-    
-    # Affichage du tableau Markdown
-    st.write("📜 **Données converties en Markdown :**")
+
+    # 🔍 Afficher un aperçu des données en Markdown
+    st.subheader("📜 **Données converties en Markdown :**")
     st.code(markdown_data, language="markdown")
 
-    # Question de l'utilisateur
-    question = st.text_input("💬 Posez une question sur ces données")
+    # 💬 Demander une question à l'utilisateur
+    question = st.text_area("💬 Posez une question à l'IA sur ces données", height=100)
 
-    if st.button("🔎 Analyser avec LLaMA"):
-        if question:
-            prompt = f"Voici un tableau de données :\n\n{markdown_data}\n\nQuestion : {question}"
-            
+    # 🏆 Analyser avec LLaMA
+    if st.button("🔎 Analyser avec LLaMA") and question:
+        with st.spinner("🔄 L'IA réfléchit..."):
+
+            # 📝 Construire le prompt
+            prompt = f"""
+            Tu es un expert en analyse de données.
+            Voici un tableau extrait d’un fichier Excel contenant des informations :
+
+            {markdown_data}
+
+            ❓ Question : {question}
+            Réponds en te basant uniquement sur ces données.
+            """
+
+            # 💡 Exécuter LLaMA
             response = ollama.chat(model="llama3", messages=[{"role": "user", "content": prompt}])
             ai_response = response["message"]["content"]
 
-            st.write("🧠 **Réponse de LLaMA :**")
-            st.write(ai_response)
+        # 🔥 Afficher la réponse de LLaMA
+        st.subheader("🧠 **Réponse de LLaMA :**")
+        st.write(ai_response)
+
+    # 🎯 Bouton pour réinitialiser la conversation
+    if st.button("🔄 Réinitialiser"):
+        st.experimental_rerun()
