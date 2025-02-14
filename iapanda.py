@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import ollama
+import tabulate
 
 # 📌 Fonction pour convertir un fichier Excel en Markdown
 def excel_to_markdown(file):
