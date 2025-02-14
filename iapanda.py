@@ -19,22 +19,30 @@ def get_available_models():
 
 @cl.on_chat_start
 async def start_chat():
-    # Set initial message history
+    # Initialiser l'historique de messages
     cl.user_session.set("message_history", [{"role": "system", "content": "You are a helpful assistant."}])
 
-    # Sélection du modèle IA (correction ici)
+    # Obtenir les modèles Ollama disponibles
     available_models = get_available_models()
-    selected_model = await cl.Select(
-        content="🧠 Sélectionnez un modèle IA disponible :",
-        choices=available_models
+    model_list_str = "\n".join([f"- {model}" for model in available_models])
+
+    # Demander à l'utilisateur de sélectionner un modèle IA en saisissant son nom
+    model_choice = await cl.AskUserMessage(
+        content=f"🧠 **Modèles disponibles :**\n{model_list_str}\n\nVeuillez entrer le nom du modèle que vous souhaitez utiliser :"
     ).send()
 
+    selected_model = model_choice['content']
+    
+    if selected_model not in available_models:
+        await cl.Message(content=f"⚠️ Modèle **{selected_model}** non reconnu. Veuillez relancer et entrer un modèle valide.").send()
+        return
+    
     # Stocker le modèle sélectionné dans la session utilisateur
-    cl.user_session.set("selected_model", selected_model['content'])
+    cl.user_session.set("selected_model", selected_model)
 
     # Demander à l'utilisateur d'uploader un fichier Excel
     uploaded_file = await cl.AskFileMessage(
-        content="📂 Téléchargez un fichier Excel à analyser (.xlsx) :",
+        content="📂 **Téléchargez un fichier Excel à analyser (.xlsx) :**",
         accept=[".xlsx"]
     ).send()
 
@@ -43,7 +51,7 @@ async def start_chat():
         df = pd.read_excel(uploaded_file["path"], engine='openpyxl')
         cl.user_session.set("dataframe", df)
 
-        await cl.Message(content="✅ Fichier Excel chargé avec succès ! Posez votre question.").send()
+        await cl.Message(content="✅ **Fichier Excel chargé avec succès ! Posez votre question.**").send()
 
 @cl.on_message
 async def main(message: cl.Message):
@@ -56,7 +64,7 @@ async def main(message: cl.Message):
     selected_model = cl.user_session.get("selected_model")
 
     if df is None:
-        await cl.Message(content="⚠️ Aucun fichier Excel chargé. Veuillez en uploader un.").send()
+        await cl.Message(content="⚠️ **Aucun fichier Excel chargé. Veuillez en uploader un.**").send()
         return
 
     # Initialiser l'IA avec le modèle sélectionné
